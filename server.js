@@ -6,7 +6,9 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 
 const app = express();
-const PORT = 3000;
+// ÖNEMLİ: Render'ın atadığı portu kullan, yoksa 3000'i varsay
+const PORT = process.env.PORT || 3000;
+
 const DATA_FILE = path.join(__dirname, 'data.json');
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
 
@@ -20,9 +22,8 @@ if (!fs.existsSync(DATA_FILE)) {
 
 // --- MIDDLEWARE ---
 app.use(cors());
-app.use(bodyParser.json({ limit: '50mb' })); // Increased limit for safety
-app.use(express.static(__dirname)); // Serve frontend files
-app.use('/uploads', express.static(UPLOADS_DIR)); // Serve uploaded images
+app.use(bodyParser.json({ limit: '50mb' })); 
+app.use(bodyParser.urlencoded({ extended: true, limit: '50mb' }));
 
 // --- STORAGE CONFIG (MULTER) ---
 const storage = multer.diskStorage({
@@ -30,26 +31,29 @@ const storage = multer.diskStorage({
         cb(null, UPLOADS_DIR)
     },
     filename: function (req, file, cb) {
-        // Create unique filename: timestamp-originalName
+        // Benzersiz dosya ismi oluştur
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        // Dosya uzantısını ve adını güvenli hale getir
         const ext = path.extname(file.originalname);
-        cb(null, file.fieldname + '-' + uniqueSuffix + ext)
+        const name = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9]/g, '');
+        cb(null, name + '-' + uniqueSuffix + ext)
     }
 })
 const upload = multer({ storage: storage });
 
-// --- API ENDPOINTS ---
+// --- API ENDPOINTS (Statik dosyalardan ÖNCE tanımlanmalı) ---
 
 // 1. GET DATA
 app.get('/api/data', (req, res) => {
     fs.readFile(DATA_FILE, 'utf8', (err, data) => {
         if (err) {
-            console.error(err);
+            console.error("Data okuma hatası:", err);
             return res.status(500).json({ error: 'Veri okunamadı' });
         }
         try {
             res.json(JSON.parse(data));
         } catch (e) {
+            console.error("JSON Parse hatası:", e);
             res.json({ articles: [], categories: [], announcement: {}, files: [] });
         }
     });
@@ -60,7 +64,7 @@ app.post('/api/data', (req, res) => {
     const newData = req.body;
     fs.writeFile(DATA_FILE, JSON.stringify(newData, null, 2), (err) => {
         if (err) {
-            console.error(err);
+            console.error("Data yazma hatası:", err);
             return res.status(500).json({ error: 'Veri kaydedilemedi' });
         }
         res.json({ success: true, message: 'Veriler güncellendi' });
@@ -72,7 +76,6 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
     if (!req.file) {
         return res.status(400).json({ error: 'Dosya yüklenemedi' });
     }
-    // Return the URL that the frontend can use
     const fileUrl = `/uploads/${req.file.filename}`;
     res.json({ 
         success: true, 
@@ -81,8 +84,11 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
     });
 });
 
+// --- STATIC FILES (API'den SONRA tanımlanmalı) ---
+app.use('/uploads', express.static(UPLOADS_DIR)); 
+app.use(express.static(__dirname));
+
 // --- START SERVER ---
 app.listen(PORT, () => {
-    console.log(`Server çalışıyor: http://localhost:${PORT}`);
-    console.log(`Admin paneli: http://localhost:${PORT}/admin.html`);
+    console.log(`Server başlatıldı. Port: ${PORT}`);
 });

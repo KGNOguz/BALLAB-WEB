@@ -12,7 +12,7 @@ let state = {
 const initApp = async () => {
     try {
         const response = await fetch('/api/data');
-        if (!response.ok) throw new Error("Veri okunamadı");
+        if (!response.ok) throw new Error(`Sunucu Hatası: ${response.status}`);
         const data = await response.json();
         
         state.articles = data.articles || [];
@@ -27,7 +27,20 @@ const initApp = async () => {
         render();
     } catch (e) {
         console.error(e);
-        document.getElementById('admin-app').innerHTML = `<div class="p-10 text-center text-red-500">Hata: Sunucuya bağlanılamadı. (npm start yaptınız mı?)</div>`;
+        document.getElementById('admin-app').innerHTML = `
+            <div class="flex items-center justify-center min-h-screen">
+                <div class="p-8 text-center bg-red-50 border border-red-200 rounded-lg max-w-md">
+                    <h2 class="text-xl font-bold text-red-700 mb-2">Sunucuya Bağlanılamadı</h2>
+                    <p class="text-sm text-red-600 mb-4">Veriler yüklenirken bir sorun oluştu.</p>
+                    <div class="text-xs text-gray-500 font-mono bg-white p-2 rounded border border-gray-200 mb-4 text-left overflow-auto max-h-32">
+                        ${e.message}
+                    </div>
+                    <p class="text-xs text-gray-500">
+                        <strong>Not:</strong> Bulut sunucusu (Render Free Tier) uyku modunda olabilir. Lütfen sayfayı yenileyip 30-60 saniye bekleyin.
+                    </p>
+                    <button onclick="location.reload()" class="mt-4 px-4 py-2 bg-red-600 text-white rounded text-sm hover:bg-red-700">Sayfayı Yenile</button>
+                </div>
+            </div>`;
     }
 };
 
@@ -73,12 +86,12 @@ window.saveChanges = async () => {
         });
 
         if (response.ok) {
-            alert("Değişiklikler sunucuya kaydedildi!");
+            alert("Değişiklikler sunucuya başarıyla kaydedildi!");
         } else {
-            alert("Hata: Kaydedilemedi.");
+            alert("Hata: Kaydedilemedi. Lütfen sayfayı yenileyip tekrar deneyin.");
         }
     } catch (error) {
-        alert("Sunucu hatası.");
+        alert("Sunucu iletişim hatası.");
         console.error(error);
     }
 };
@@ -185,11 +198,11 @@ window.handleFileUpload = async (e) => {
                 alert('Dosya sunucuya yüklendi! "KAYDET" butonuna basınız.');
                 render();
             } else {
-                alert("Yükleme başarısız.");
+                alert("Yükleme başarısız. Lütfen dosya boyutunu veya türünü kontrol edin.");
             }
         } catch (err) {
             console.error(err);
-            alert("Yükleme hatası.");
+            alert("Yükleme hatası: Sunucuya ulaşılamadı.");
         }
     }
 };
